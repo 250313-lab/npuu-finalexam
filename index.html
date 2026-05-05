@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>NPUU Imtihon Tizimi</title>
+    <title>NPUU Imtihon Ruxsatnomasi</title>
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
@@ -62,20 +62,22 @@
     <div class="btn-fail" id="failToggle">🚫 Faqat ruxsat berilmaganlar</div>
 </div>
 
-<div id="loader">Ma'lumotlar yuklanmoqda...</div>
+<div id="loader">Ma'lumotlar bazasiga ulanmoqda...</div>
 <div id="studentList"></div>
 
 <script>
     let allStudents = [];
     let onlyFailed = false;
-    const API_URL = "https://script.google.com/macros/s/AKfycbyS7cm33OIfPZWcfJniKoKEiCC093hTCBMrLPDuyCSM9S4CeQRf7z7Sl71iIdxmB84ZNg/exec";
+    
+    // Siz yuborgan yangi URL manzil
+    const API_URL = "https://script.google.com/macros/s/AKfycbwjfFqk_2cRJ92ceX2ncy0TbADTJ29OnwL4K-r3xZPk96qcwFrqEd6nBndbVhsW74vnFQ/exec";
 
     async function fetchData() {
         try {
             const response = await fetch(API_URL);
             allStudents = await response.json();
             
-            // Fanlar ro'yxatini to'ldirish
+            // Fanlar ro'yxatini shakllantirish
             const subjects = [...new Set(allStudents.map(s => s.subject))].filter(Boolean);
             const select = document.getElementById('subjectFilter');
             subjects.forEach(sub => {
@@ -87,7 +89,7 @@
             document.getElementById('loader').style.display = 'none';
             updateList();
         } catch (error) {
-            document.getElementById('loader').innerHTML = "<b style='color:red'>Xatolik:</b> Ma'lumot olib bo'lmadi.";
+            document.getElementById('loader').innerHTML = "<b style='color:red'>Xatolik!</b><br>Ma'lumotlarni yuklab bo'lmadi.";
         }
     }
 
@@ -98,6 +100,7 @@
         const subjectQuery = document.getElementById('subjectFilter').value;
 
         const filtered = allStudents.filter(s => {
+            // "Attendance fail" yoki bo'sh bo'lmagan statuslarni tekshirish
             const isFailed = s.status.toLowerCase().includes('fail') || s.status.toLowerCase().includes('no');
             return s.name.toLowerCase().includes(nameQuery) &&
                    s.group.toString().toLowerCase().includes(groupQuery) &&
@@ -107,7 +110,7 @@
         });
 
         const listDiv = document.getElementById('studentList');
-        listDiv.innerHTML = filtered.length ? '' : '<p style="text-align:center; color:#94a3b8; font-size:14px;">Ma\'lumot topilmadi</p>';
+        listDiv.innerHTML = filtered.length ? '' : '<p style="text-align:center; color:#94a3b8;">Ma\'lumot topilmadi</p>';
 
         filtered.forEach(s => {
             const isFailed = s.status.toLowerCase().includes('fail') || s.status.toLowerCase().includes('no');
@@ -115,14 +118,14 @@
                 <div class="card ${isFailed ? 'failed' : ''}">
                     <span class="student-name">${s.name}</span>
                     <div class="info-grid">
-                        <div class="info-item">👥 ${s.group}</div>
-                        <div class="info-item">📚 ${s.subject}</div>
-                        <div class="info-item">📅 ${s.date}</div>
-                        <div class="info-item">⏰ ${s.time}</div>
+                        <div class="info-item">👥 Guruh: ${s.group}</div>
+                        <div class="info-item">📚 Fan: ${s.subject}</div>
+                        <div class="info-item">📅 Sana: ${s.date}</div>
+                        <div class="info-item">⏰ Vaqt: ${s.time}</div>
                         <div class="info-item">🚪 Xona: ${s.room}</div>
                     </div>
                     <span class="status-tag ${isFailed ? 'tag-fail' : 'tag-pass'}">
-                        ${isFailed ? 'Ruxsat berilmadi' : 'Ruxsat berildi'}
+                        ${isFailed ? 'Attendance Fail / Ruxsat yo\'q' : 'Imtihonga ruxsat berildi'}
                     </span>
                 </div>`;
         });
@@ -138,6 +141,7 @@
         document.getElementById(id).addEventListener('input', updateList);
     });
 
+    // Telegram WebApp sozlamalari
     if (window.Telegram && window.Telegram.WebApp) {
         Telegram.WebApp.ready();
         Telegram.WebApp.expand();
