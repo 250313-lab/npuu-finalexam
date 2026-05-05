@@ -7,15 +7,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #0088cc;
-            --danger: #ff4d4d;
-            --bg: #f4f7f9;
-            --text: #2c3e50;
-        }
+        :root { --primary: #0088cc; --danger: #ff4d4d; --bg: #f4f7f9; --text: #2c3e50; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; padding: 12px; color: var(--text); }
-        
-        /* Qidiruv paneli */
         .sticky-header {
             background: white; padding: 15px; border-radius: 20px; 
             box-shadow: 0 8px 20px rgba(0,0,0,0.06); margin-bottom: 20px;
@@ -26,57 +19,39 @@
             width: 100%; padding: 12px; border: 1.5px solid #edf2f7;
             border-radius: 12px; outline: none; box-sizing: border-box; font-size: 14px;
         }
-        input:focus { border-color: var(--primary); }
-
-        /* Filtr tugmalari */
         .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        
         .failed-btn {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             padding: 12px; border-radius: 12px; border: 1px solid #fee2e2;
             background: #fff1f2; color: var(--danger); font-weight: 600; cursor: pointer;
         }
         .failed-btn.active { background: var(--danger); color: white; }
-
-        /* Kartochkalar */
         .card { 
             background: white; border-radius: 18px; padding: 16px; margin-bottom: 12px; 
-            border-left: 6px solid var(--primary); transition: 0.2s;
+            border-left: 6px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .card.failed { border-left-color: var(--danger); }
         .student-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; display: block; }
-        
         .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
         .info-item { background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #f1f5f9; }
-        
-        .status-tag {
-            display: inline-block; padding: 2px 8px; border-radius: 6px; font-size: 11px;
-            font-weight: 700; margin-top: 10px;
-        }
+        .status-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-top: 10px; }
         .tag-pass { background: #dcfce7; color: #15803d; }
         .tag-failed { background: #fee2e2; color: #b91c1c; }
-
         #loader { text-align: center; margin-top: 40px; color: #94a3b8; }
     </style>
 </head>
 <body>
 
 <div class="sticky-header">
-    <div class="input-group">
-        <input type="text" id="nameInput" placeholder="Ism sharifingizni yozing...">
-    </div>
+    <div class="input-group"><input type="text" id="nameInput" placeholder="Ism sharifingizni yozing..."></div>
     <div class="filter-row">
         <input type="text" id="groupInput" placeholder="Guruh">
         <input type="text" id="roomInput" placeholder="Xona">
     </div>
     <div class="input-group">
-        <select id="subjectSelect">
-            <option value="">Barcha fanlar</option>
-        </select>
+        <select id="subjectSelect"><option value="">Barcha fanlar</option></select>
     </div>
-    <div class="failed-btn" id="failedToggle">
-        <span id="failIcon">🚫</span> Faqat ruxsat berilmaganlar
-    </div>
+    <div class="failed-btn" id="failedToggle">🚫 Faqat ruxsat berilmaganlar</div>
 </div>
 
 <div id="loader">Ma'lumotlar yuklanmoqda...</div>
@@ -86,41 +61,51 @@
     let students = [];
     let isFailedOnly = false;
 
-    // Google Sheets ID
-    const SHEET_ID = '1BMI_CkUdKXP-CZN974jrmt4h3YmCnRQKmfQzobDcIig';
-    const jsonUrl = https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json;
+    // Sizning jadval ID-ingiz
+    const SHEET_ID = '1S2SGbU9_o4MFcQSWVwOvqSNEe7EJEzwt6ISNgdkieLOxfZt8xU9hFkGalyjO_VYPw6-WZJf1sdsIFi';
+    
+    // Varaq nomlari
+    const sheetNames = [
+        'Final exam', 'Discrete Math', 'Analysis 2', 
+        'Analytical Geometry', 'Calculus 2', 
+        'General English 2', 'Introduction to Teaching'
+    ];
 
     async function init() {
         try {
-            const response = await fetch(jsonUrl);
-            const dataText = await response.text();
-            const jsonData = JSON.parse(dataText.substr(47).slice(0, -2));
-            
-            students = jsonData.table.rows.map(row => ({
-                name: row.c[0]?.v || '',
-                group: row.c[1]?.v?.toString() || '',
-                subject: row.c[2]?.v || '',
-                date: row.c[3]?.v || '',3
-                time: row.c[4]?.v || '',
-                room: row.c[5]?.v?.toString() || '',
-                status: (row.c[6]?.v || 'Pass').toString().toLowerCase()
-            }));
+            const promises = sheetNames.map(async (name) => {
+                const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}`;
+                const response = await fetch(url);
+                const text = await response.text();
+                const jsonData = JSON.parse(text.substring(47).slice(0, -2));
+                
+                return jsonData.table.rows
+                    .filter(row => row.c[0] && row.c[0].v)
+                    .map(row => ({
+                        name: row.c[0]?.v || '',
+                        group: row.c[1]?.v?.toString() || '',
+                        subject: name, 
+                        date: row.c[3]?.f || row.c[3]?.v || '',
+                        time: row.c[4]?.v || '',
+                        room: row.c[5]?.v?.toString() || '',
+                        status: (row.c[6]?.v || '').toString().toLowerCase()
+                    }));
+            });
 
-            // Fanlar ro'yxatini shakllantirish
-            const subjects = [...new Set(students.map(s => s.subject))].filter(Boolean);
+            const results = await Promise.all(promises);
+            students = results.flat();
+
             const select = document.getElementById('subjectSelect');
-            subjects.forEach(sub => {
+            sheetNames.forEach(sub => {
                 const opt = document.createElement('option');
-                opt.value = sub;
-                opt.innerText = sub;
+                opt.value = sub; opt.innerText = sub;
                 select.appendChild(opt);
             });
 
             document.getElementById('loader').style.display = 'none';
             filter();
-
         } catch (e) {
-            document.getElementById('loader').innerText = "Xatolik! Jadval ruxsatini tekshiring.";
+            document.getElementById('loader').innerHTML = `<b style="color:red">Xatolik!</b><br>Jadval ochiq ekanligini tekshiring.`;
         }
     }
 
@@ -131,27 +116,26 @@
         const subVal = document.getElementById('subjectSelect').value;
 
         const filtered = students.filter(s => {
+            const isNoAccess = s.status.includes('fail') || s.status.includes('no') || s.status.includes('berilmagan');
             return s.name.toLowerCase().includes(nameVal) &&
                    s.group.toLowerCase().includes(groupVal) &&
                    s.room.toLowerCase().includes(roomVal) &&
                    (subVal === "" || s.subject === subVal) &&
-                   (!isFailedOnly || s.status === 'failed');
+                   (!isFailedOnly || isNoAccess);
         });
-
         render(filtered);
     }
 
     function render(data) {
         const container = document.getElementById('results');
-        container.innerHTML = '';
-
+        container.innerHTML = data.length ? '' : '<div style="text-align:center;color:#94a3b8;">Topilmadi</div>';
         data.forEach(s => {
-            const isF = s.status === 'failed';
+            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('berilmagan');
             container.innerHTML += `
                 <div class="card ${isF ? 'failed' : ''}">
                     <span class="student-name">${s.name}</span>
                     <div class="info-grid">
-                        <div class="info-item">👥 ${s.group}-guruh</div>
+                        <div class="info-item">👥 ${s.group}</div>
                         <div class="info-item">📚 ${s.subject}</div>
                         <div class="info-item">📅 ${s.date}</div>
                         <div class="info-item">⏰ ${s.time}</div>
@@ -160,12 +144,10 @@
                     <span class="status-tag ${isF ? 'tag-failed' : 'tag-pass'}">
                         ${isF ? 'RUHSAT BERILMAGAN' : 'RUHSAT BERILGAN'}
                     </span>
-                </div>
-            `;
+                </div>`;
         });
     }
 
-    // Eventlar
     document.getElementById('failedToggle').addEventListener('click', function() {
         isFailedOnly = !isFailedOnly;
         this.classList.toggle('active');
@@ -178,6 +160,5 @@
 
     window.onload = init;
 </script>
-
 </body>
 </html>
