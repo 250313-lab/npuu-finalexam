@@ -7,14 +7,8 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root {
-            --primary: #0088cc;
-            --danger: #ff4d4d;
-            --bg: #f4f7f9;
-            --text: #2c3e50;
-        }
+        :root { --primary: #0088cc; --danger: #ff4d4d; --bg: #f4f7f9; --text: #2c3e50; }
         body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; padding: 12px; color: var(--text); }
-        
         .sticky-header {
             background: white; padding: 15px; border-radius: 20px; 
             box-shadow: 0 8px 20px rgba(0,0,0,0.06); margin-bottom: 20px;
@@ -25,123 +19,102 @@
             width: 100%; padding: 12px; border: 1.5px solid #edf2f7;
             border-radius: 12px; outline: none; box-sizing: border-box; font-size: 14px;
         }
-        input:focus { border-color: var(--primary); }
-
         .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
-        
         .failed-btn {
             display: flex; align-items: center; justify-content: center; gap: 8px;
             padding: 12px; border-radius: 12px; border: 1px solid #fee2e2;
             background: #fff1f2; color: var(--danger); font-weight: 600; cursor: pointer;
-            transition: 0.2s;
         }
         .failed-btn.active { background: var(--danger); color: white; }
-
         .card { 
             background: white; border-radius: 18px; padding: 16px; margin-bottom: 12px; 
-            border-left: 6px solid var(--primary); transition: 0.2s;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            border-left: 6px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05);
         }
         .card.failed { border-left-color: var(--danger); }
-        .student-name { font-weight: 700; font-size: 1.05rem; margin-bottom: 8px; display: block; color: #1e293b; }
-        
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
-        .info-item { background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #f1f5f9; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        
-        .status-tag {
-            display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 10px;
-            font-weight: 700; margin-top: 10px; text-transform: uppercase;
-        }
+        .student-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; display: block; }
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+        .info-item { background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #f1f5f9; }
+        .status-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-top: 10px; }
         .tag-pass { background: #dcfce7; color: #15803d; }
         .tag-failed { background: #fee2e2; color: #b91c1c; }
-
-        #loader { text-align: center; margin-top: 40px; color: #94a3b8; font-weight: 500; }
+        #loader { text-align: center; margin-top: 40px; color: #94a3b8; }
     </style>
 </head>
 <body>
 
 <div class="sticky-header">
-    <div class="input-group">
-        <input type="text" id="nameInput" placeholder="Ism sharifingizni yozing...">
-    </div>
+    <div class="input-group"><input type="text" id="nameInput" placeholder="Ism sharifingizni yozing..."></div>
     <div class="filter-row">
         <input type="text" id="groupInput" placeholder="Guruh">
         <input type="text" id="roomInput" placeholder="Xona">
     </div>
     <div class="input-group">
-        <select id="subjectSelect">
-            <option value="">Barcha fanlar</option>
-        </select>
+        <select id="subjectSelect"><option value="">Barcha fanlar</option></select>
     </div>
-    <div class="failed-btn" id="failedToggle">
-        🚫 Faqat ruxsat berilmaganlar
-    </div>
+    <div class="failed-btn" id="failedToggle">🚫 Faqat ruxsat berilmaganlar</div>
 </div>
 
-<div id="loader">Ma'lumotlar yuklanmoqda...</div>
+<div id="loader">Ma'lumotlar yuklanmoqda (CSV)...</div>
 <div id="results"></div>
 
 <script>
     let students = [];
     let isFailedOnly = false;
 
-    // YANGI VA TO'G'RI ID
-    const SHEET_ID = '1iUTKDYsBDKP5LVKBlozw47aXGMk7D8SWpUZc9sEDCWw';
+    // Har bir varaq uchun CSV havolalari (gid qismini jadvalingizdan oling)
+    // Agar gid raqamlarini bilmasangiz, faqat bitta asosiy havoladan foydalanamiz
+    const csvBaseUrl = "https://docs.google.com/spreadsheets/d/e/2PACX-1vS2SGbU9_o4MFcQSWVwOvqSNEe7EJEzwt6ISNgdkieLOxfZt8xU9hFkGalyjO_VYPw6-WZJf1sdsIFi/pub?output=csv";
     
-    // Varaq nomlari (Jadvalingizdagidek)
-    const sheetNames = [
-        'Final exam', 
-        'Discrete Math', 
-        'Analysis 2', 
-        'Analytical Geometry', 
-        'Calculus 2', 
-        'General English 2', 
-        'Introduction to Teaching'
+    // Varaqlar va ularning gid raqamlari (Jadval pastidagi URL'dan gid=... qismini toping)
+    // Agar gid aniq bo'lmasa, har bir fan nomi bilan so'raymiz
+    const sheets = [
+        { name: 'Final exam', gid: '0' },
+        { name: 'Discrete Math', gid: '540191845' }, // Bu gid'larni o'zgartirishingiz kerak bo'lishi mumkin
+        { name: 'Analysis 2', gid: '12345678' }, 
+        { name: 'Analytical Geometry', gid: '98765432' },
+        { name: 'Calculus 2', gid: '11223344' },
+        { name: 'General English 2', gid: '55667788' },
+        { name: 'Introduction to Teaching', gid: '99001122' }
     ];
 
     async function init() {
-        if (window.Telegram && window.Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-        }
-
         try {
-            const promises = sheetNames.map(async (name) => {
-                const url = `https://docs.google.com/spreadsheets/d/${SHEET_ID}/gviz/tq?tqx=out:json&sheet=${encodeURIComponent(name)}`;
-                const response = await fetch(url);
-                const text = await response.text();
-                const jsonData = JSON.parse(text.substring(47).slice(0, -2));
+            // Hozircha faqat bitta (birinchi) varaqni sinab ko'ramiz
+            // Agar barcha varaqlarni gid orqali olmoqchi bo'lsangiz loop ishlating
+            const response = await fetch(csvBaseUrl);
+            const data = await response.text();
+            
+            // CSV ni qatorlarga bo'lish
+            const rows = data.split('\n').slice(1); // Birinchi sarlavha qatorini tashlab ketish
+
+            students = rows.map(row => {
+                const cols = row.split(','); // Vergul bilan ajratish
+                if(cols.length < 2) return null;
                 
-                return jsonData.table.rows
-                    .filter(row => row.c[0] && row.c[0].v) 
-                    .map(row => ({
-                        name: row.c[0]?.v || '',
-                        group: row.c[1]?.v?.toString() || '',
-                        subject: name, 
-                        date: row.c[3]?.f || row.c[3]?.v || '',
-                        time: row.c[4]?.v || '',
-                        room: row.c[5]?.v?.toString() || '',
-                        status: (row.c[6]?.v || '').toString().toLowerCase()
-                    }));
-            });
+                return {
+                    name: cols[0]?.trim() || '',
+                    group: cols[1]?.trim() || '',
+                    subject: cols[2]?.trim() || 'Final Exam',
+                    date: cols[3]?.trim() || '',
+                    time: cols[4]?.trim() || '',
+                    room: cols[5]?.trim() || '',
+                    status: (cols[6] || '').toLowerCase()
+                };
+            }).filter(s => s !== null && s.name !== "");
 
-            const results = await Promise.all(promises);
-            students = results.flat();
-
+            // Fanlar ro'yxati
+            const subjects = [...new Set(students.map(s => s.subject))].filter(Boolean);
             const select = document.getElementById('subjectSelect');
-            sheetNames.forEach(sub => {
+            subjects.forEach(sub => {
                 const opt = document.createElement('option');
-                opt.value = sub;
-                opt.innerText = sub;
+                opt.value = sub; opt.innerText = sub;
                 select.appendChild(opt);
             });
 
             document.getElementById('loader').style.display = 'none';
             filter();
-
         } catch (e) {
-            console.error(e);
-            document.getElementById('loader').innerHTML = `<b style="color:red">Xatolik yuz berdi!</b><br>Bog'lanishni tekshiring.`;
+            document.getElementById('loader').innerHTML = "Xatolik: CSV yuklanmadi.";
         }
     }
 
@@ -152,58 +125,25 @@
         const subVal = document.getElementById('subjectSelect').value;
 
         const filtered = students.filter(s => {
-            const isNoAccess = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat') || s.status.includes('berilmagan');
+            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat');
             return s.name.toLowerCase().includes(nameVal) &&
                    s.group.toLowerCase().includes(groupVal) &&
                    s.room.toLowerCase().includes(roomVal) &&
                    (subVal === "" || s.subject === subVal) &&
-                   (!isFailedOnly || isNoAccess);
+                   (!isFailedOnly || isF);
         });
-
         render(filtered);
     }
 
     function render(data) {
         const container = document.getElementById('results');
         container.innerHTML = '';
-
-        if (data.length === 0) {
-            container.innerHTML = '<div style="text-align:center; padding: 20px; color: #94a3b8;">Ma\'lumot topilmadi</div>';
-            return;
-        }
-
         data.forEach(s => {
-            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat') || s.status.includes('berilmagan');
+            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat');
             container.innerHTML += `
                 <div class="card ${isF ? 'failed' : ''}">
                     <span class="student-name">${s.name}</span>
                     <div class="info-grid">
-                        <div class="info-item">👥 ${s.group}-guruh</div>
+                        <div class="info-item">👥 ${s.group}</div>
                         <div class="info-item">📚 ${s.subject}</div>
-                        <div class="info-item">📅 ${s.date}</div>
-                        <div class="info-item">⏰ ${s.time}</div>
-                        <div class="info-item">🚪 Xona: ${s.room}</div>
-                    </div>
-                    <span class="status-tag ${isF ? 'tag-failed' : 'tag-pass'}">
-                        ${isF ? 'RUHSAT BERILMAGAN' : 'RUHSAT BERILGAN'}
-                    </span>
-                </div>
-            `;
-        });
-    }
-
-    document.getElementById('failedToggle').addEventListener('click', function() {
-        isFailedOnly = !isFailedOnly;
-        this.classList.toggle('active');
-        filter();
-    });
-
-    ['nameInput', 'groupInput', 'roomInput', 'subjectSelect'].forEach(id => {
-        document.getElementById(id).addEventListener('input', filter);
-    });
-
-    window.onload = init;
-</script>
-
-</body>
-</html>
+                        <div class="info
