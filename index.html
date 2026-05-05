@@ -7,135 +7,143 @@
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
-        :root { --primary: #0088cc; --danger: #ff4d4d; --bg: #f4f7f9; --text: #2c3e50; }
-        body { font-family: 'Inter', sans-serif; background-color: var(--bg); margin: 0; padding: 12px; color: var(--text); }
-        .sticky-header {
-            background: white; padding: 15px; border-radius: 20px; 
-            box-shadow: 0 8px 20px rgba(0,0,0,0.06); margin-bottom: 20px;
-            position: sticky; top: 10px; z-index: 1000;
+        :root { --primary: #0088cc; --danger: #ef4444; --success: #22c55e; --bg: #f1f5f9; }
+        body { font-family: 'Inter', sans-serif; background: var(--bg); margin: 0; padding: 10px; color: #1e293b; }
+        
+        .header {
+            background: white; padding: 15px; border-radius: 15px;
+            box-shadow: 0 4px 15px rgba(0,0,0,0.05); position: sticky; top: 10px; z-index: 100; margin-bottom: 15px;
         }
+        
         input, select {
-            width: 100%; padding: 12px; border: 1.5px solid #edf2f7;
-            border-radius: 12px; outline: none; box-sizing: border-box; font-size: 14px; margin-bottom: 10px;
+            width: 100%; padding: 12px; border: 1px solid #e2e8f0;
+            border-radius: 10px; font-size: 14px; margin-bottom: 8px; outline: none; box-sizing: border-box;
         }
-        .filter-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
-        .failed-btn {
-            display: flex; align-items: center; justify-content: center; gap: 8px;
-            padding: 12px; border-radius: 12px; border: 1px solid #fee2e2;
-            background: #fff1f2; color: var(--danger); font-weight: 600; cursor: pointer; margin-top: 10px;
+
+        .filter-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+
+        .btn-fail {
+            display: flex; align-items: center; justify-content: center; gap: 5px;
+            padding: 10px; border-radius: 10px; border: 1px solid #fee2e2;
+            background: #fff1f2; color: var(--danger); font-weight: 600; cursor: pointer; font-size: 13px;
         }
-        .failed-btn.active { background: var(--danger); color: white; }
-        .card { 
-            background: white; border-radius: 18px; padding: 16px; margin-bottom: 12px; 
-            border-left: 6px solid var(--primary); box-shadow: 0 2px 5px rgba(0,0,0,0.05);
+        .btn-fail.active { background: var(--danger); color: white; }
+
+        .card {
+            background: white; border-radius: 15px; padding: 15px; margin-bottom: 12px;
+            border-left: 5px solid var(--primary); box-shadow: 0 2px 8px rgba(0,0,0,0.03);
         }
         .card.failed { border-left-color: var(--danger); }
-        .student-name { font-weight: 700; font-size: 1.1rem; margin-bottom: 8px; display: block; }
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 13px; }
+        
+        .student-name { font-weight: 700; font-size: 16px; color: #0f172a; display: block; margin-bottom: 10px; }
+        
+        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; font-size: 12px; }
         .info-item { background: #f8fafc; padding: 6px 10px; border-radius: 8px; border: 1px solid #f1f5f9; }
-        .status-tag { display: inline-block; padding: 4px 10px; border-radius: 6px; font-size: 11px; font-weight: 700; margin-top: 10px; }
-        .tag-pass { background: #dcfce7; color: #15803d; }
-        .tag-failed { background: #fee2e2; color: #b91c1c; }
-        #loader { text-align: center; margin-top: 40px; color: #94a3b8; }
+
+        .status-tag {
+            display: inline-block; margin-top: 10px; padding: 4px 10px; 
+            border-radius: 6px; font-size: 10px; font-weight: 700; text-transform: uppercase;
+        }
+        .tag-pass { background: #dcfce7; color: #166534; }
+        .tag-fail { background: #fee2e2; color: #991b1b; }
+
+        #loader { text-align: center; padding: 40px; color: #64748b; font-size: 14px; }
     </style>
 </head>
 <body>
 
-<div class="sticky-header">
-    <input type="text" id="nameInput" placeholder="Ism sharifingizni yozing...">
-    <div class="filter-row">
-        <input type="text" id="groupInput" placeholder="Guruh">
-        <input type="text" id="roomInput" placeholder="Xona">
+<div class="header">
+    <input type="text" id="nameSearch" placeholder="Ism yoki Familiya...">
+    <div class="filter-grid">
+        <input type="text" id="groupSearch" placeholder="Guruh">
+        <input type="text" id="roomSearch" placeholder="Xona">
     </div>
-    <select id="subjectSelect"><option value="">Barcha fanlar</option></select>
-    <div class="failed-btn" id="failedToggle">🚫 Faqat ruxsat berilmaganlar</div>
+    <select id="subjectFilter"><option value="">Barcha fanlar</option></select>
+    <div class="btn-fail" id="failToggle">🚫 Faqat ruxsat berilmaganlar</div>
 </div>
 
-<div id="loader">Ma'lumotlar bazasiga ulanmoqda...</div>
-<div id="results"></div>
+<div id="loader">Ma'lumotlar yuklanmoqda...</div>
+<div id="studentList"></div>
 
 <script>
-    let students = [];
-    let isFailedOnly = false;
+    let allStudents = [];
+    let onlyFailed = false;
     const API_URL = "https://script.google.com/macros/s/AKfycbyS7cm33OIfPZWcfJniKoKEiCC093hTCBMrLPDuyCSM9S4CeQRf7z7Sl71iIdxmB84ZNg/exec";
 
-    async function init() {
-        if (window.Telegram && window.Telegram.WebApp) {
-            Telegram.WebApp.ready();
-            Telegram.WebApp.expand();
-        }
-
+    async function fetchData() {
         try {
             const response = await fetch(API_URL);
-            students = await response.json();
-
-            // Fanlar ro'yxatini shakllantirish
-            const subjects = [...new Set(students.map(s => s.subject))].filter(Boolean);
-            const select = document.getElementById('subjectSelect');
+            allStudents = await response.json();
+            
+            // Fanlar ro'yxatini to'ldirish
+            const subjects = [...new Set(allStudents.map(s => s.subject))].filter(Boolean);
+            const select = document.getElementById('subjectFilter');
             subjects.forEach(sub => {
                 const opt = document.createElement('option');
-                opt.value = sub; opt.innerText = sub;
+                opt.value = sub; opt.textContent = sub;
                 select.appendChild(opt);
             });
 
             document.getElementById('loader').style.display = 'none';
-            filter();
-        } catch (e) {
-            document.getElementById('loader').innerHTML = "<b style='color:red'>Xatolik!</b><br>API bilan bog'lanib bo'lmadi.";
+            updateList();
+        } catch (error) {
+            document.getElementById('loader').innerHTML = "<b style='color:red'>Xatolik:</b> Ma'lumot olib bo'lmadi.";
         }
     }
 
-    function filter() {
-        const nameVal = document.getElementById('nameInput').value.toLowerCase();
-        const groupVal = document.getElementById('groupInput').value.toLowerCase();
-        const roomVal = document.getElementById('roomInput').value.toLowerCase();
-        const subVal = document.getElementById('subjectSelect').value;
+    function updateList() {
+        const nameQuery = document.getElementById('nameSearch').value.toLowerCase();
+        const groupQuery = document.getElementById('groupSearch').value.toLowerCase();
+        const roomQuery = document.getElementById('roomSearch').value.toLowerCase();
+        const subjectQuery = document.getElementById('subjectFilter').value;
 
-        const filtered = students.filter(s => {
-            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat') || s.status.includes('berilmagan');
-            return s.name.toLowerCase().includes(nameVal) &&
-                   s.group.toString().toLowerCase().includes(groupVal) &&
-                   s.room.toString().toLowerCase().includes(roomVal) &&
-                   (subVal === "" || s.subject === subVal) &&
-                   (!isFailedOnly || isF);
+        const filtered = allStudents.filter(s => {
+            const isFailed = s.status.toLowerCase().includes('fail') || s.status.toLowerCase().includes('no');
+            return s.name.toLowerCase().includes(nameQuery) &&
+                   s.group.toString().toLowerCase().includes(groupQuery) &&
+                   s.room.toString().toLowerCase().includes(roomQuery) &&
+                   (subjectQuery === "" || s.subject === subjectQuery) &&
+                   (!onlyFailed || isFailed);
         });
-        render(filtered);
-    }
 
-    function render(data) {
-        const container = document.getElementById('results');
-        container.innerHTML = data.length ? '' : '<div style="text-align:center;padding:20px;color:#94a3b8;">Ma\'lumot topilmadi</div>';
-        
-        data.forEach(s => {
-            const isF = s.status.includes('fail') || s.status.includes('no') || s.status.includes('ruxsat') || s.status.includes('berilmagan');
-            container.innerHTML += `
-                <div class="card ${isF ? 'failed' : ''}">
+        const listDiv = document.getElementById('studentList');
+        listDiv.innerHTML = filtered.length ? '' : '<p style="text-align:center; color:#94a3b8; font-size:14px;">Ma\'lumot topilmadi</p>';
+
+        filtered.forEach(s => {
+            const isFailed = s.status.toLowerCase().includes('fail') || s.status.toLowerCase().includes('no');
+            listDiv.innerHTML += `
+                <div class="card ${isFailed ? 'failed' : ''}">
                     <span class="student-name">${s.name}</span>
                     <div class="info-grid">
-                        <div class="info-item">👥 ${s.group}-guruh</div>
+                        <div class="info-item">👥 ${s.group}</div>
                         <div class="info-item">📚 ${s.subject}</div>
-                        <div class="info-item">📅 ${s.date || 'Belgilanmagan'}</div>
-                        <div class="info-item">⏰ ${s.time || '--:--'}</div>
+                        <div class="info-item">📅 ${s.date}</div>
+                        <div class="info-item">⏰ ${s.time}</div>
                         <div class="info-item">🚪 Xona: ${s.room}</div>
                     </div>
-                    <span class="status-tag ${isF ? 'tag-failed' : 'tag-pass'}">
-                        ${isF ? 'RUHSAT BERILMAGAN' : 'RUHSAT BERILGAN'}
+                    <span class="status-tag ${isFailed ? 'tag-fail' : 'tag-pass'}">
+                        ${isFailed ? 'Ruxsat berilmadi' : 'Ruxsat berildi'}
                     </span>
                 </div>`;
         });
     }
 
-    document.getElementById('failedToggle').addEventListener('click', function() {
-        isFailedOnly = !isFailedOnly;
+    document.getElementById('failToggle').onclick = function() {
+        onlyFailed = !onlyFailed;
         this.classList.toggle('active');
-        filter();
+        updateList();
+    };
+
+    ['nameSearch', 'groupSearch', 'roomSearch', 'subjectFilter'].forEach(id => {
+        document.getElementById(id).addEventListener('input', updateList);
     });
 
-    ['nameInput', 'groupInput', 'roomInput', 'subjectSelect'].forEach(id => {
-        document.getElementById(id).addEventListener('input', filter);
-    });
+    if (window.Telegram && window.Telegram.WebApp) {
+        Telegram.WebApp.ready();
+        Telegram.WebApp.expand();
+    }
 
-    window.onload = init;
+    fetchData();
 </script>
 </body>
 </html>
